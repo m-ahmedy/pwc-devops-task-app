@@ -8,7 +8,7 @@ on:
 
   workflow_dispatch:
     inputs:
-      new_tag:
+      tag:
         description: "New image tag (e.g., v1.0, v1.1, etc.)"
         required: true
         type: string
@@ -29,6 +29,9 @@ jobs:
   build-and-push-image:
     name: Build and push Docker image to ACR
     runs-on: ubuntu-latest
+    outputs:
+      image_name: ${{ steps.docker_build.outputs.image_name }}
+      tag: ${{ steps.docker_build.outputs.tag }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -41,15 +44,31 @@ jobs:
           password: ${{ secrets.ACR_PASSWORD }}
 
       - name: Build Docker image
+        id: docker_build
         run: |
+          REGISTRY_SERVER=${{ vars.ACR_LOGIN_SERVER }}
           APP_NAME=${{ vars.APP_NAME }}
           TAG=${{ github.sha }}
 
-          docker build -t $APP_NAME -t $APP_NAME:$TAG .
+          # If triggered by workflow_dispatch, use the provided tag instead of github.sha
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.tag }}"
+          fi
+          
+          IMAGE_NAME=$REGISTRY_SERVER/$APP_NAME
+          TAGGED_IMAGE_NAME=$IMAGE_NAME:$TAG
+
+          docker build \
+            -t $IMAGE_NAME \
+            -t $TAGGED_IMAGE_NAME \
+            .
+
           echo "Success: Built $APP_NAME with tag: $TAG"
 
-          docker tag $APP_NAME ${{ vars.ACR_LOGIN_SERVER }}/$APP_NAME:$TAG
-          docker push ${{ vars.ACR_LOGIN_SERVER }}/$APP_NAME:$TAG
+          docker push $TAGGED_IMAGE_NAME
+
+          echo "image_name=$IMAGE_NAME" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
   deploy:
     name: Set new docker image tag in infra specification
@@ -63,19 +82,25 @@ jobs:
           token: ${{ secrets.DEPLOY_GH_TOKEN }}
 
       - name: Set deployment variables
-        id: set-vars
+        id: set_vars
         run: |
+          echo "image_name=${{ needs.build-and-push-image.outputs.image_name }}" >> $GITHUB_ENV
+
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "NEW_TAG=${{ inputs.new_tag }}" >> $GITHUB_ENV
-            echo "ENVIRONMENT=${{ inputs.environment }}" >> $GITHUB_ENV
+            echo "tag=${{ inputs.tag }}" >> $GITHUB_ENV
+            echo "environment=${{ inputs.environment }}" >> $GITHUB_ENV
           else
-            echo "NEW_TAG=${{ github.sha }}" >> $GITHUB_ENV
-            echo "ENVIRONMENT=dev" >> $GITHUB_ENV
+            echo "tag=${{ needs.build-and-push-image.outputs.tag }}" >> $GITHUB_ENV
+            echo "environment=dev" >> $GITHUB_ENV
           fi
 
       - name: Update Target Environment Image Tag
         run: |
-          yq e '.images[0].newTag = "${{ env.NEW_TAG }}"' -i kustomize/${{ vars.APP_NAME }}/overlays/${{ env.ENVIRONMENT }}/kustomization.yaml
+          sudo apt update && sudo apt install -y yq
+
+          cd kustomize/${{ vars.APP_NAME }}/overlays/${{ env.environment }}
+          
+          yq -i '(.images[] | select(.name == "${{ env.image_name }}")).newTag = "${{ env.tag }}"' kustomization.yaml -y
 
       - name: Commit and Push
         env:
@@ -87,5 +112,5 @@ jobs:
           git config user.email "github-actions@github.com"
 
           git add .
-          git commit -m "Deploy new image tag $NEW_TAG to ${{ env.ENVIRONMENT }} by $CALLER"
+          git commit -m "Deploy new image tag $tag to ${{ env.environment }} by $CALLER"
           git push
