@@ -75,15 +75,17 @@ jobs:
 
       - name: Update Target Environment Image Tag
         run: |
-          yq e '.images[0].newTag = "$NEW_TAG"' -i kustomize/${{ vars.APP_NAME }}/overlays/$ENVIRONMENT/kustomization.yaml
+          yq e '.images[0].newTag = "${{ env.NEW_TAG }}"' -i kustomize/${{ vars.APP_NAME }}/overlays/${{ env.ENVIRONMENT }}/kustomization.yaml
 
       - name: Commit and Push
+        env:
+          GITHUB_TOKEN: ${{ secrets.DEPLOY_GH_TOKEN }}
         run: |
-          CALLER="${{ github.event_name }}-${{ inputs.caller }}"
-          GITHUB_TOKEN=${{ secrets.DEPLOY_TOKEN }}
+          CALLER="${{ github.event_name }}"
 
           git config user.name "gh-actions-$CALLER"
           git config user.email "github-actions@github.com"
-          git add kustomize/${{ vars.APP_NAME }}/overlays/$ENVIRONMENT/kustomization.yaml
-          git commit -m "Deploy new image tag $NEW_TAG to $ENVIRONMENT by $CALLER"
+
+          git add .
+          git commit -m "Deploy new image tag $NEW_TAG to ${{ env.ENVIRONMENT }} by $CALLER"
           git push
