@@ -1,43 +1,31 @@
+name: Application CI
 
-# name: CI
+on:
+  workflow_dispatch:
 
-# on:
-#     push:
-#         tags:
-#             - '*'
-#         branches:
-#             - main
+  pull_request:
+    branches:
+      - dev # dev environment
+      - main # prod environment
 
-# jobs:  
-#   build:
-#     runs-on: ubuntu-latest
-#     steps:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
 
-#     - uses: azure/login@v2
-#       with:
-#         creds: ${{ secrets.ACR_PUSH_SP_CREDENTIALS }}
+      - name: Login to ACR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.ACR_LOGIN_SERVER }}
+          username: ${{ vars.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
 
-#     - name: Azure CLI script
-#       uses: azure/cli@v2
-#       with:
-#         azcliversion: latest
-#         inlineScript: |
-#           az acr login --name ${{ secrets.ACR_LOGIN_SERVER }}
-    
-#     - name: Build and tag Docker image
-#       run: |
-#             IMAGE_NAME=${{ vars.IMAGE_NAME }}
-#             VERSION=$(date +'%Y%m%d%H%M%S')
-#             docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:$VERSION .
-#             echo "Built $IMAGE_NAME with tags: latest, $VERSION"
-    
-            
-#     - name: Push Docker image to ACR
-#       run: |
-#             IMAGE_NAME=myapp
-#             VERSION=$(date +'%Y%m%d%H%M%S')
-#             ACR_LOGIN_SERVER=${{ secrets.ACR_LOGIN_SERVER }}
-#             docker tag $IMAGE_NAME:latest $ACR_LOGIN_SERVER/$IMAGE_NAME:latest
-#             docker tag $IMAGE_NAME:$VERSION $ACR_LOGIN_SERVER/$IMAGE_NAME:$VERSION
-#             docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:latest
-#             docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:$VERSION
+      - name: Build Docker image
+        run: |
+          APP_NAME=${{ vars.APP_NAME }}
+          TAG=${{ github.sha }}
+
+          docker build -t $APP_NAME -t $APP_NAME:$TAG .
+          echo "Success: Built $APP_NAME with tag: $TAG"
