@@ -1,4 +1,4 @@
-# App README
+# PwC DevOps Task App
 
 ## Overview
 
@@ -15,6 +15,17 @@ This application is part of the `pwc-devops-task` project. It is designed to dem
 - [Docker](https://www.docker.com/) (optional, for containerization)
 - [Python 3.x](https://www.python.org/) (if applicable)
 - Other dependencies as specified in `requirements.txt` or relevant files
+
+### GitHub Actions Setup
+
+- Secrets:
+    - ACR_PASSWORD: The password of docker login credentials to the ACR
+    - DEPLOY_GH_TOKEN: The GitHub Personal Access Token (PAT) of the infra repo
+- Variables:
+    - ACR_LOGIN_SERVER: The login server of the ACR
+    - ACR_USERNAME: The username of docker login credentials to the ACR
+    - APP_NAME: The name of the app
+    - INFRA_REPO: The repo containing infrastructure specifications
 
 ## Setup
 
