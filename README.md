@@ -59,3 +59,37 @@ This application is part of the `pwc-devops-task` project. It is designed to dem
 
 - `GET /products` — Retrieve a list of products.
 - `GET /products/<id>` — Retrieve details for a specific product.
+
+## Deployment
+
+### CI/CD Setup
+
+To enable CI/CD workflows, configure the following in your GitHub repository:
+
+### Required Secrets
+
+- **ACR_PASSWORD**: Docker login password for Azure Container Registry.
+- **DEPLOY_GH_TOKEN**: GitHub Personal Access Token for infra repo access, must have contents write permission.
+
+### Required Variables
+
+- **ACR_LOGIN_SERVER**: Azure Container Registry login server.
+- **ACR_USERNAME**: Docker login username for ACR.
+- **APP_NAME**: Application name.
+- **INFRA_REPO**: Infrastructure repository name.
+
+### Environments
+
+Create two environments in your repository settings:
+
+#### 1. `dev`
+- Used for development deployments.
+- Add required secrets and variables to this environment.
+- Enable branch protection rules (e.g., require pull request reviews before merging to `dev`).
+
+#### 2. `prod`
+- Used for production deployments.
+- Add required secrets and variables to this environment.
+- Enable stricter branch protection rules (e.g., require status checks, pull request reviews, and deployment approvals before merging to `main`).
+
+> **Tip:** Configure environment protection rules in GitHub under **Settings > Environments** to control who can deploy to each environment.
